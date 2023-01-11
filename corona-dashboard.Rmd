@@ -1,0 +1,88 @@
+---
+title: "Corona Dashboard"
+runtime: shiny
+author: "Raphael Fredebeul"
+date: "2023-01-11"
+output: 
+  flexdashboard::flex_dashboard:
+    theme: lumen
+    orientation: columns
+    social: menu
+---
+
+```{r setup, include=FALSE}
+library(shiny)
+library(flexdashboard)
+library(ggplot2)
+library(sjPlot)
+library(shinyWidgets)
+library(shinycssloaders)
+```
+
+```{r}
+load("poisson_model.RData")
+```
+```{r}
+eff <- reactive({input$effect})
+```
+
+
+Sidebar {.sidebar}
+================================================================================
+
+### Information
+
+**Test**
+```{r}
+effects <- c("cases", "month")
+shinyWidgets::pickerInput(
+  inputId = "effect",
+  label = "Effect of Interest",
+  choices = effects,
+  multiple = FALSE
+)
+```
+
+
+Geographic Evolution
+================================================================================
+Column
+--------------------------------------------------------------------------------
+
+### Test
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+### Test 2
+```{r cars}
+summary(cars)
+```
+
+
+Influence on Deaths
+================================================================================
+Column
+--------------------------------------------------------------------------------
+### as
+```{r}
+renderPrint(eff())
+```
+
+
+### Partial Influence
+```{r}
+renderPlot(
+  plot_model(mod_poisson, type="pred", terms = eff())
+)
+
+```
+
+Column
+--------------------------------------------------------------------------------
+### Model Summary
+
+```{r pressure, echo=FALSE}
+summary(mod_poisson)
+```

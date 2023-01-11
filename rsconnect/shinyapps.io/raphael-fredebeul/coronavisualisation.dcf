@@ -1,0 +1,11 @@
+name: coronavisualisation
+title:
+username:
+account: raphael-fredebeul
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 8012539
+bundleId: 6721779
+url: https://raphael-fredebeul.shinyapps.io/coronavisualisation/
+when: 1673449878.74385
+lastSyncTime: 1673449878.74386

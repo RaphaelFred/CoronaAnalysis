@@ -1,0 +1,57 @@
+---
+title: "model_training"
+author: "Raphael Fredebeul"
+date: "2023-01-11"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r}
+train_data <- read.csv("data/corona_data.csv")
+train_data
+```
+```{r}
+train_data$year <- as.factor(train_data$year)
+train_data$popData2019Millions <- train_data$popData2019 / 10^6
+# train_data$month <- as.factor(train_data$month)
+```
+
+# Per week aggregation
+```{r}
+library(dplyr)
+train_data$week <- strftime(as.Date(train_data$dateRep, tryFormats = "%d/%m/%Y"), format = "%V")
+grouped_data <- train_data %>% 
+  group_by(week, year, month, countriesAndTerritories, popData2019Millions, continentExp) %>%
+  summarize(cases = sum(cases), deaths = deaths)
+```
+
+```{r}
+# Remove rows with death cases < 0 
+grouped_data <- grouped_data[grouped_data$deaths > 0,]
+grouped_data <- grouped_data[grouped_data$cases > 0,]
+```
+
+
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+mod <- lm(log(deaths)~ continentExp + I(month) + I(month^2) + I(month^3) + log(cases) + popData2019Millions + I(popData2019Millions^2) + I(popData2019Millions^3) + I(popData2019Millions^4), data=grouped_data)
+summary(mod)
+```
+```{r}
+mod_poisson <- glm(deaths~ continentExp + I(month) + I(month^2) + I(month^3) + log(cases) + popData2019Millions + I(popData2019Millions^2) + I(popData2019Millions^3) + I(popData2019Millions^4), family = "poisson", data=grouped_data)
+save(mod_poisson, file = "poisson_model.RData")
+summary(mod_gamma)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
+```{r}
+plot_model(mod, type="pred", terms = "month")
+```
