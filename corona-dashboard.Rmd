@@ -16,11 +16,42 @@ library(flexdashboard)
 library(ggplot2)
 library(sjPlot)
 library(shinyWidgets)
+library(hrbrthemes)
 library(shinycssloaders)
 ```
 
 ```{r}
+library("rnaturalearth")
+library("rnaturalearthdata")
+library(dplyr)
+
+train_data <- read.csv("data/corona_data.csv")
+world <- ne_countries(scale = "medium", returnclass = "sf")
+train_data$popData2019Millions <- train_data$popData2019 / 10^6
+train_data$week <- as.numeric(strftime(as.Date(train_data$dateRep, tryFormats = "%d/%m/%Y"), format = "%V"))
+
+# Filter data until week 50 because week 51 only has one day in year 2020
+train_data <- train_data[train_data$week <= 50,]
+
+# Group data by week
+grouped_data <- train_data %>% 
+  group_by(week, year, month, countriesAndTerritories,countryterritoryCode, popData2019, continentExp) %>%
+  summarize(cases = sum(cases), deaths = sum(deaths), rel_cases = sum(cases)/sum(popData2019))
+
+# Aux df to scale cases for visualisation
+aux_df <- grouped_data %>% group_by(countryterritoryCode) %>% summarize(max_rel_cases = max(rel_cases, na.rm=T))
+grouped_data <- dplyr::inner_join(grouped_data, aux_df)
+grouped_data$display_rel_cases <- grouped_data$rel_cases/grouped_data$max_rel_cases
+df1 <- grouped_data[grouped_data$week == 12 & grouped_data$year == 2020, c("cases", "countryterritoryCode")]
+
+test <- dplyr::left_join(world, df1, by = c("su_a3" = "countryterritoryCode"))
+```
+
+
+```{r}
 load("poisson_model.RData")
+
+i <- 0
 ```
 ```{r}
 eff <- reactive({input$effect})
@@ -30,9 +61,31 @@ eff <- reactive({input$effect})
 Sidebar {.sidebar}
 ================================================================================
 
-### Information
+### Geographic Vizualisation
 
-**Test**
+```{r}
+
+vis_vars <- c("Cases", "Deaths", "Relative Proportion")
+shinyWidgets::pickerInput(
+  inputId = "visual",
+  label = "Cases/Deaths",
+  choices = vis_vars,
+  multiple = FALSE
+)
+
+# years <- c(2019, 2020)
+# shinyWidgets::pickerInput(
+#   inputId = "year",
+#   label = "Year",
+#   choices = years,
+#   multiple = FALSE
+# )
+sliderInput("week", "Week:",
+                  min = min(train_data$week), max = max(train_data$week),
+                  value = 1)
+```
+
+### Partial Effects
 ```{r}
 effects <- c("cases", "month")
 shinyWidgets::pickerInput(
@@ -41,23 +94,72 @@ shinyWidgets::pickerInput(
   choices = effects,
   multiple = FALSE
 )
+
 ```
 
+
+```{r}
+asd <- reactive({
+  df1 <- grouped_data[grouped_data$week == input$week & grouped_data$year == 2020, c("cases", "deaths", "display_rel_cases", "countryterritoryCode")]
+  test <- dplyr::left_join(world, df1, by = c("su_a3" = "countryterritoryCode"))
+  test
+})
+
+```
 
 Geographic Evolution
 ================================================================================
 Column
 --------------------------------------------------------------------------------
 
-### Test
-
-This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
-
-When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-### Test 2
+### Geographic Evolution {data-height=650}
 ```{r cars}
-summary(cars)
+renderPlot(
+if (input$visual == "Cases") {
+  ggplot(data = asd()) +
+    
+    ggtitle(paste0("Cases per country in week ", input$week, " 2020. Total Cases: ", sum(asd()$cases, na.rm=T))) +
+    geom_sf(aes(fill = cases)) +
+    theme_ipsum() +
+    scale_fill_distiller(palette = "Spectral")
+} else if (input$visual == "Relative Proportion"){
+  ggplot(data = asd()) +
+    ggtitle(paste0("Infection Rate relative to Maximum Rate per Country in week ", input$week, " 2020.")) +
+    geom_sf(aes(fill = display_rel_cases)) +
+    theme_ipsum() +
+    scale_fill_distiller(palette = "Spectral")
+} else {
+  ggplot(data = asd()) +
+    ggtitle(paste0("Deaths per country in week ", input$week, " 2020. Total Deaths: ", sum(asd()$deaths, na.rm=T)))+
+    geom_sf(aes(fill = deaths)) +
+    theme_ipsum() +
+    scale_fill_distiller(palette = "Spectral")
+}
+)
+```
+### Evloution over time {data-height=350}
+```{r}
+
+line_data <- reactive({
+  if (input$visual == "deaths") {
+    grouped_data  %>% 
+      group_by(week) %>% 
+      summarize(n=sum(deaths, na.rm=T))
+  } else {
+    grouped_data  %>% 
+      group_by(week) %>% 
+      summarize(n=sum(cases, na.rm=T))
+  }
+  })
+# renderPrint(line_data())
+renderPlot(
+  ggplot(data = line_data(), aes(x=week, y=n)) +
+    geom_line( color="grey") +
+    geom_point(shape=21, color="black", fill="#69b3a2", size=6) +
+    theme_ipsum() +
+    geom_vline(xintercept = input$week) +
+    ggtitle(paste0("Evolution of ", input$visual, "."))
+)
 ```
 
 
