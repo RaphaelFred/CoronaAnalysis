@@ -46,6 +46,14 @@ mod <- lm(log(deaths)~ continentExp + I(month) + I(month^2) + I(month^3) + log(c
 summary(mod)
 ```
 ```{r}
+library(kableExtra)
+library(tidyr)
+library(broom)
+mod %>% tidy() %>% kbl %>% kable_styling()
+
+```
+
+```{r}
 mod_poisson <- glm(deaths~ continentExp + I(month) + I(month^2) + I(month^3) + log(cases) + popData2019Millions + I(popData2019Millions^2) + I(popData2019Millions^3) + I(popData2019Millions^4), family = "poisson", data=grouped_data)
 save(mod_poisson, file = "poisson_model.RData")
 summary(mod_gamma)
@@ -55,3 +63,46 @@ Note that the `echo = FALSE` parameter was added to the code chunk to prevent pr
 ```{r}
 plot_model(mod, type="pred", terms = "month")
 ```
+
+
+```{r}
+library(randomForest)
+library(varImp)
+rf <- randomForest::randomForest(deaths ~ month + cases, 
+                          data = grouped_data, importance=TRUE) 
+
+#Conditional=True, adjusts for correlations between predictors.
+i_scores <- varImp::varImp(rf$importance)
+```
+```{r}
+library(caret)
+
+rf <- train(
+  grouped_data[,c('month', 'cases')],
+  grouped_data$deaths,
+  trControl = trainControl(method = "oob"),
+  importance = TRUE,
+  verbose = TRUE
+)
+
+fm <- rf$finalModel
+```
+
+```{r}
+library(xgboost)
+train_x <- data.matrix(grouped_data[,c('month', 'cases', "popData2019Millions", "continentExp")])
+train_y <- grouped_data$deaths
+
+xgb_train <- xgb.DMatrix(data = train_x, label = train_y)
+
+model = xgb.train(data = xgb_train, max.depth=3, nrounds = 100)
+colnames(xgb_train) <- c("cases", "population", "month", "continent")
+importance_matrix = xgb.importance(colnames(xgb_train), model = model)
+
+save(importance_matrix, file = "importance.RData")
+```
+
+```{r}
+xgb.plot.importance(importance_matrix)
+```
+

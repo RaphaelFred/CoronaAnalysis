@@ -5,9 +5,9 @@ account: raphael-fredebeul
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 8021106
-bundleId: 6726396
+bundleId: 6744164
 url: https://raphael-fredebeul.shinyapps.io/corona-dashboard/
-when: 1673543656.38404
-lastSyncTime: 1673543656.38405
+when: 1673978976.89806
+lastSyncTime: 1673978976.89807
 asMultiple: FALSE
 asStatic: FALSE
